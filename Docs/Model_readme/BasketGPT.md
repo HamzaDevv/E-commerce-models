@@ -76,3 +76,12 @@ Once deployed locally, the engine proved that it doesn't just learn "items"—it
 
 ## Conclusion
 The BasketGPT is a tremendous victory over traditional association rules. It successfully runs within a strict memory budget, generalizes beautifully over unseen product combinations, and handles concurrent asynchronous requests safely alongside a Vector Database in the same FastAPI Python instance.
+
+
+## further work
+### 🛠️ Next Steps & Recommendations
+Train for 10–15 Epochs: You only ran for 2 epochs. Transformer models usually need a bit more time to "settle" into the weights. You should see that Recall@10 climb toward 12–15% with more time.
+
+Increase Embedding Dimension: Your embed_dim is currently 64. For a 50k vocabulary, that is a very tight bottleneck. If you have the VRAM, try bumping it to 128 or 256. This will give the model more "space" to store complex relationships between different types of groceries.
+
+The "Apple" Bias: Notice how 'Apple' or 'Avocado' appears in almost every suggestion. These are "Global Top Sellers" in the Instacart dataset. To make your recommendations more interesting, you could implement Frequency Discounting during inference to favor "long-tail" items over the most popular ones.
