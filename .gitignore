@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# OS
+.DS_Store
+
+# Datasets and Models
+Dataset/
+ml_backend/data/
+*.bin
+*.pkl
+*.faiss
+*.pt
+*.pth
+*.h5
+
+# Project Specific
+Docs/*.pdf
+!Docs/*.md

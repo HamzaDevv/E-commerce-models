@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pandas
+rank-bm25
+ollama
+faiss-cpu
+scikit-learn
+rapidfuzz
+google-generativeai
+python-dotenv
+torch

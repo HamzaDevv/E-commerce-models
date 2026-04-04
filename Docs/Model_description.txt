@@ -1,0 +1,32 @@
+Here is a summary of the models and algorithms we have discussed for your Instamart project, categorized by their role in the system:
+Level 1: Current Implementation
+* SVD (Singular Value Decomposition): Matrix-based collaborative filtering for the recommendation page.
+* Content-Based Filtering: Traditional similarity-based matching for the search engine.
+* Apriori Algorithm: Used for Market Basket Analysis to find frequent itemsets.
+* Clustering (K-Means/Segmentation): Customer and product segmentation based on features like "total spent."
+* Semantic Search: Using basic vector embeddings to find products by meaning rather than just keywords.
+
+Level 2: Planned & Recommended Models
+* Transformers (SASRec / BERT4Rec): For sequential recommendation, treating product histories like "sentences" to predict the next "token" (product).
+* Multi-Task Learning (MTL): A custom architecture to predict both the Next Product ID (Classification) and the Next Purchase Date (Regression) simultaneously.
+* LSTMs (Long Short-Term Memory): An alternative for sequential modeling and temporal refills.
+* XGBoost / LightGBM: For dynamic pricing, discount engines, and predicting time-deltas for "Refill" notifications.
+* Hybrid Search (BM25 + Vectors): Combining keyword-based search with semantic embeddings for better accuracy.
+* SHAP / LIME: For Explainable AI (XAI) to tell the user why a product was recommended.
+
+Industry Standards Mentioned
+* DIEN (Deep Interest Evolution Network): Used by Alibaba for tracking evolving user interests.
+* TiSASRec: A variation of SASRec that is specifically "Time-Interval Aware."
+* Word2Vec: For initializing product embeddings based on their names or categories.
+
+
+Level 3: Novel Architecture — BasketGPT (Basket Completion)
+* BasketGPT: A lightweight decoder-only causal transformer (~3.3M params) that treats product IDs as tokens
+  and order sequences as "sentences". Trained with next-token prediction (like GPT pretraining) on 2.87M
+  order baskets from the Instacart dataset.
+  - Architecture: 2 Transformer layers, 4 attention heads, 64d embeddings, 256d FFN, RoPE positional encoding
+  - Training: CrossEntropyLoss with label smoothing, AdamW optimizer, cosine LR with warmup, mixed precision (GPU)
+  - Inference: Autoregressive generation — predicts a product, appends it to context, predicts the next one,
+    just like GPT generates text. Supports controllable temperature and top-k sampling.
+  - Weight tying: Output projection shares weights with input embedding (parameter efficient)
+  - Use case: At checkout, analyze cart contents → generate basket completion suggestions in real-time (<50ms)
