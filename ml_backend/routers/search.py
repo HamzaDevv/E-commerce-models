@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from models.search_engine.engine import HybridSearchEngine
 import traceback
 
 router = APIRouter(
@@ -17,19 +16,14 @@ class SearchQuery(BaseModel):
     query: str
     top_k: Optional[int] = 10
 
-@router.on_event("startup")
-async def startup_event():
-    global engine
-    try:
-        engine = HybridSearchEngine()
-    except Exception as e:
-        print(f"Warning: Failed to load search engine indices on startup. Did you run the indexer? Error: {e}")
+# Engine is now initialized strictly via FastAPI lifespan in main.py
 
 @router.post("/")
-async def search_products(q: SearchQuery):
+def search_products(q: SearchQuery):
     global engine
     if engine is None:
         try:
+            from models.search_engine.engine import HybridSearchEngine
             engine = HybridSearchEngine()
         except Exception as e:
             raise HTTPException(status_code=500, detail="Search engine indices are not built yet. Run the indexer script.")

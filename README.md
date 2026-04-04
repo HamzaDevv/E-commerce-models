@@ -51,11 +51,19 @@ A high-performance, modular FastAPI backend for e-commerce intelligence. This re
    GEMINI_API_KEY=your_gemini_api_key
    ```
 
-5. **Run the Server**:
+5. **Run the Server (Development)**:
    ```bash
    cd ml_backend
    uvicorn main:app --reload --port 8000
    ```
+
+6. **Run the Server (Production)**:
+   The application uses a strict sequential `lifespan` initialization to prevent OpenMP crashes and manages CPU-bound inference in an external threadpool. It is safe to run with multiple workers.
+   ```bash
+   cd ml_backend
+   uvicorn main:app --workers 4 --host 0.0.0.0 --port 8000
+   ```
+   *Note: CORS is enabled by default for all origins to easily connect with the Frontend.*
 
 ## 📂 Project Structure
 ```text

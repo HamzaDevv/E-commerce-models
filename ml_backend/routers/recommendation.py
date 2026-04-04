@@ -41,19 +41,11 @@ class BasketCompleteRequest(BaseModel):
     )
 
 
-@router.on_event("startup")
-async def startup_event():
-    """Try to load BasketGPT on server startup."""
-    global basket_engine
-    try:
-        from models.basket_engine.engine import BasketCompletionEngine
-        basket_engine = BasketCompletionEngine()
-    except Exception as e:
-        print(f"⚠️  BasketGPT not loaded on startup (train model first): {e}")
+# Engine is now initialized strictly via FastAPI lifespan in main.py
 
 
 @router.post("/basket-complete")
-async def basket_complete(request: BasketCompleteRequest):
+def basket_complete(request: BasketCompleteRequest):
     """
     🛒 Basket Completion — Autoregressive Product Generation
     
