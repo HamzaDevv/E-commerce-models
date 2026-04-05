@@ -11,23 +11,31 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from routers import search, recommendation
+from routers import search, recommendation, basket_rag
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("\n--- [App Initialization: Booting ML Engines Sequence] ---")
     
-    # STEP 1: Boot PyTorch Application First
-    # PyTorch and Faiss both initialize separate OpenMP threading pools natively.
-    # To prevent Linux/macOS segfaults, PyTorch must always lock its threads first!
+    # STEP 1: Boot BasketGPT (autoregressive generation engine — PyTorch)
+    # Must be first: locks the OpenMP thread pool before any Faiss C++ lib loads.
     try:
         from models.basket_engine.engine import BasketCompletionEngine
         recommendation.basket_engine = BasketCompletionEngine()
-        print("✅ Basket Engine (PyTorch) booted successfully.")
+        print("✅ BasketGPT Engine (PyTorch) booted successfully.")
     except Exception as e:
-        print(f"⚠️  Basket Engine failed to load: {e}")
+        print(f"⚠️  BasketGPT Engine failed to load: {e}")
 
-    # STEP 2: Boot Faiss Engine Second
+    # STEP 2: Boot BasketRAG (contrastive retrieval engine — PyTorch + Faiss)
+    try:
+        from models.basket_rag.engine import BasketRAGEngine
+        basket_rag.basket_rag_engine = BasketRAGEngine()
+        print("✅ BasketRAG Engine (PyTorch + Faiss) booted successfully.")
+    except Exception as e:
+        print(f"⚠️  BasketRAG Engine failed to load: {e}")
+
+    # STEP 3: Boot Hybrid Search Engine (Faiss BM25+Vector)
+    # Always last — Faiss must not seize the thread pool before PyTorch does.
     try:
         from models.search_engine.engine import HybridSearchEngine
         search.engine = HybridSearchEngine()
@@ -57,6 +65,7 @@ app.add_middleware(
 
 # Mount the routers for different sub-systems
 app.include_router(recommendation.router)
+app.include_router(basket_rag.router)
 app.include_router(search.router)
 
 @app.get("/")

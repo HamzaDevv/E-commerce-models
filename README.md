@@ -9,14 +9,20 @@ A high-performance, modular FastAPI backend for e-commerce intelligence. This re
 - **FAISS Semantic Similarity**: Vector-based search using `nomic-embed-text` embeddings from Ollama.
 - **Typo Tolerance**: Hybrid scoring mechanism to handle search inaccuracies.
 
-### 2. BasketGPT Recommendation Engine
-- **Autoregressive Transformer**: A lightweight PyTorch-based transformer model (BasketGPT) for basket completion.
-- **RoPE Embeddings**: Utilizes Rotary Position Embeddings for high-quality sequence modeling.
-- **Dynamic Predictor**: Predicts the next most likely item based on current basket contents.
+### 2. Basket-RAG Recommendation Engine
+- **Retrieval-Augmented Generation**: Treats shopping as a retrieval problem across a 3-million-basket historical corpus.
+- **Contrastive Learning**: Uses a Transformer-based `BasketEncoder` trained with NT-Xent loss to map shopping intent to dense vectors.
+- **Maximal Marginal Relevance (MMR)**: Ensures diversity in retrieved candidates to prevent redundant recommendations.
+- **Faron's F1 Optimization**: Dynamically determines the optimal number of items to recommend for maximum precision/recall.
 
-### 3. Modular API Architecture
-- Clean FastAPI routing (`/search`, `/recommendations`).
+### 3. BasketGPT Completion Engine
+- **Autoregressive Transformer**: A lightweight PyTorch-based model for predicting next-item probability sequences.
+- **RoPE Embeddings**: Utilizes Rotary Position Embeddings for high-quality sequence modeling.
+
+### 4. Modular API Architecture
+- Clean FastAPI routing (`/search`, `/recommendations`, `/basket-rag`).
 - Environment-based configuration using `.env`.
+- Sequential "Three-Engine Boot" process to prevent OpenMP thread collisions.
 - Scalable backend for processing large product catalogs (up to 50k+ items).
 
 ## 🛠 Tech Stack
@@ -58,24 +64,26 @@ A high-performance, modular FastAPI backend for e-commerce intelligence. This re
    ```
 
 6. **Run the Server (Production)**:
-   The application uses a strict sequential `lifespan` initialization to prevent OpenMP crashes and manages CPU-bound inference in an external threadpool. It is safe to run with multiple workers.
+   The application uses a strict sequential `lifespan` initialization to prevent OpenMP crashes (PyTorch + Faiss collisions) and manages CPU-bound inference efficiently.
    ```bash
    cd ml_backend
    uvicorn main:app --workers 4 --host 0.0.0.0 --port 8000
    ```
-   *Note: CORS is enabled by default for all origins to easily connect with the Frontend.*
+   *Note: The boot sequence follows: BasketGPT → Basket-RAG → Hybrid Search.*
 
 ## 📂 Project Structure
 ```text
 .
 ├── ml_backend/
-│   ├── main.py             # Entry point
-│   ├── routers/            # Search and Recommendation routers
-│   ├── models/             # Model architectures and logic
-│   ├── data/               # (Excluded) FAISS/BM25 Indices
-│   └── requirements.txt    # Python dependencies
+│   ├── main.py             # Entry point with sequential engine boot
+│   ├── routers/            # Search, Recommendation, and Basket-RAG routers
+│   ├── models/             # Transformer (GPT) and Contrastive (RAG) architectures
+│   ├── data/               # (Excluded) Model weights and Vector Indices
+│   └── requirements.txt    # Python dependencies (pinned)
 ├── Dataset/                # (Excluded) Raw CSV datasets
-└── Docs/                   # Project documentation
+├── Docs/                   # Detailed Model Architectures & Journey
+│   └── Model_readme/       # READMEs for BasketGPT and Basket-RAG
+└── README.md
 ```
 
 ## ⚠️ Important Notes

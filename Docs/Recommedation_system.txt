@@ -1,0 +1,29 @@
+# Architectural Specification: Basket-RAG Sequential Recommendation Engine
+
+## Introduction
+This documentation serves as the technical "Source of Truth" for the **Basket-RAG Recommendation System**. It reframes sequential recommendation as a Retrieval-Augmented Generation (RAG) problem. By treating past shopping dynamics as a behavioral corpus, the system bridges the gap between static collaborative filtering and pure sequence modeling via contrastive learning.
+
+## 1. The Encoder: Learning the Basket Space
+The encoder's job is to vectorize a user's transaction/basket into a dense representation of their shopping intent.
+*   **Vector Construction**: We map 50k+ product IDs to **128-dimensional** continuous embeddings.
+*   **Representation**: Instead of simple average pooling, each basket is prepended with a learnable `[CLS]` global context token. A Transformer (Multi-Head Attention) layer allows items to contextualize each other before we extract the transformed `[CLS]` token as the core Basket Vector ($\mathbf{v}_B$).
+*   **Learning Objective (SimCLR/NT-Xent)**: We train using Contrastive Learning. Specifically, consecutive baskets for a user ($(Basket_t, Basket_{t+1})$) are pushed to Cosine Similarity ≈ 1, while negative samples are pushed to 0.
+*   **Training Mechanics**:
+    *   **Augmentation**: "Shuffle" and "Item Dropout" are applied to stabilize embeddings and handle dynamic basket sizes.
+    *   **Hard Negatives**: Baskets from the same user at different times, or different users on overlapping shopping missions.
+    *   **Projector Head**: A non-linear MLP maps the `[CLS]` embedding to the contrastive loss function during training, but is dropped during inference.
+
+## 2. The Retriever: Candidate Generation
+The Retriever functions as the Vector Database in a traditional RAG implementation.
+*   **Indexing**: Frozen basket vectors are indexed in a high-performance approximate nearest neighbor (ANN) store (e.g., **Faiss**).
+*   **Vector Query**: A user's current session or cart is encoded into a query $\mathbf{q}_u$.
+*   **Maximal Marginal Relevance (MMR)**: During candidate generation, we apply MMR to retrieve up to 100 similar, yet diverse baskets. This prevents redundancy and expands candidate coverage for different "shopping paths."
+
+## 3. The Generator/Ranker: Extracting Next Actions
+The final recommendation is synthesized dynamically:
+*   **Base Scoring**: Candidate items are scored by summing the similarity scores of the retrieved baskets they appear in.
+*   **Biases**: Global popularity and recency factors are incorporated to boost mathematically relevant items. Durable goods from the immediate last basket are explicitly penalized.
+*   **F1 Optimization**: Faron's Expectation-Maximization algorithm picks the optimal top-$K$ cutoff to maximize the expected F1 score.
+
+## 4. Integration
+This model functions strictly as an **Immediate Next-Step Predictor** and serves horizontally alongside **BasketGPT** in a macro hybrid architecture. Basket-RAG provides "Collaborative" generations, while BasketGPT tackles "Syntactic" generations. Both merge via a scalable FastAPI microservice.
