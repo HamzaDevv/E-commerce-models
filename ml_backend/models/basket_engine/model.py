@@ -260,7 +260,7 @@ class BasketGPT(nn.Module):
             dropout=config['dropout'],
         )
     
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate(
         self,
         cart_ids: list[int],

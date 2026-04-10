@@ -35,5 +35,7 @@ def search_products(q: SearchQuery):
         results = engine.search(q.query, top_k=q.top_k)
         return {"query": q.query, "results": results}
     except Exception as e:
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        import logging
+        logger = logging.getLogger("ml_backend")
+        logger.error(f"Search failed for query '{q.query}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Search operation failed.")

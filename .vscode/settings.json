@@ -1,0 +1,6 @@
+{
+    "python.defaultInterpreterPath": "ml_backend/venv/bin/python",
+    "python.analysis.extraPaths": [
+        "./ml_backend"
+    ]
+}

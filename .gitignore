@@ -10,6 +10,9 @@ env/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+#instamart full stack codebase
+instamart/
+
 # OS
 .DS_Store
 

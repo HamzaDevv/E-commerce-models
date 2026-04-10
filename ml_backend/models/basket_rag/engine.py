@@ -111,14 +111,14 @@ class BasketRAGEngine:
             "encoder_best.pt",
             "basket_rag_config.json",
             "vocab.pkl",
-            "basket_vectors.npy",
-            "basket_metadata.pkl",
+            "basket_index.faiss",
+            "basket_metadata_slim.pkl",
         ]
         missing = [f for f in required if not os.path.exists(os.path.join(self.data_dir, f))]
         if missing:
             raise FileNotFoundError(
                 f"BasketRAG artifacts missing from '{self.data_dir}': {missing}\n"
-                "Train the model in Colab and copy the output files."
+                "Run compress_basket_index.py and slim_metadata.py first."
             )
 
     def _load_vocab(self):
@@ -164,33 +164,27 @@ class BasketRAGEngine:
               f"|  layers={cfg['n_layers']}  |  heads={cfg['n_heads']}")
 
     def _build_faiss_index(self):
-        print("  [3/4] Building Faiss index...")
+        print("  [3/4] Loading pre-built Faiss IVF-PQ index...")
         faiss = _import_faiss()
 
-        vectors_path  = os.path.join(self.data_dir, "basket_vectors.npy")
-        metadata_path = os.path.join(self.data_dir, "basket_metadata.pkl")
+        index_path    = os.path.join(self.data_dir, "basket_index.faiss")
+        metadata_path = os.path.join(self.data_dir, "basket_metadata_slim.pkl")
 
-        self.basket_vectors  = np.load(vectors_path).astype(np.float32)
+        self.faiss_index = faiss.read_index(index_path)
+        # IVF-PQ: set nprobe for search quality (higher = more accurate, slower)
+        self.faiss_index.nprobe = 32
+
         with open(metadata_path, "rb") as f:
-            self.basket_metadata = pickle.load(f)
+            self.basket_metadata = pickle.load(f)  # list of lists of product_ids
 
-        # L2-normalise so cosine similarity = inner product
-        norms = np.linalg.norm(self.basket_vectors, axis=1, keepdims=True)
-        norms = np.where(norms == 0, 1.0, norms)
-        self.basket_vectors_normed = (self.basket_vectors / norms).astype(np.float32)
-
-        d = self.basket_vectors_normed.shape[1]
-        self.faiss_index = faiss.IndexFlatIP(d)        # Inner-product = cosine after L2-norm
-        self.faiss_index.add(self.basket_vectors_normed)
-
-        print(f"     Index: {self.faiss_index.ntotal:,} vectors  |  dim={d}")
+        print(f"     Index: {self.faiss_index.ntotal:,} vectors  |  nprobe={self.faiss_index.nprobe}")
 
     def _compute_global_popularity(self):
         """Pre-compute global product frequency across all indexed baskets."""
         print("  [4/4] Computing global product popularity...")
         freq: Counter = Counter()
-        for meta in self.basket_metadata:
-            freq.update(meta["product_ids"])
+        for product_ids in self.basket_metadata:
+            freq.update(product_ids)
         total = max(sum(freq.values()), 1)
         self.global_popularity: Dict[int, float] = {
             pid: cnt / total for pid, cnt in freq.items()
@@ -214,7 +208,7 @@ class BasketRAGEngine:
 
     def _encode_cart(self, product_ids: List[int]) -> np.ndarray:
         """Encode cart → normalised float32 query vector."""
-        with torch.no_grad():
+        with torch.inference_mode():
             token_tensor = self._format_basket(product_ids)
             emb = self.model.encode(token_tensor)           # [1, D]
             emb = F.normalize(emb, dim=-1)
@@ -224,39 +218,23 @@ class BasketRAGEngine:
 
     def _retrieve(self, query_vec: np.ndarray, n_retrieve: int = 100):
         """
-        ANN search with Maximal Marginal Relevance (MMR) diversity filter.
-        Returns list of (similarity_score, basket_metadata_dict).
+        ANN search via IVF-PQ index.
+        Returns list of (similarity_score, product_ids_list).
+        With PQ we skip MMR (reconstructed vectors are lossy) and rely on
+        IVF diversity + scoring-stage popularity penalty instead.
         """
-        # Fetch 3× candidates before MMR pruning
-        fetch_k = min(n_retrieve * 3, self.faiss_index.ntotal)
+        fetch_k = min(n_retrieve, self.faiss_index.ntotal)
         scores, indices = self.faiss_index.search(query_vec[np.newaxis], fetch_k)
         scores  = scores[0]
         indices = indices[0]
 
-        # MMR: iteratively pick the candidate that max(sim_to_query - sim_to_selected)
-        selected_vecs  = []
         selected_pairs = []
-        lambda_mmr     = 0.6   # 0 = pure diversity, 1 = pure similarity
-
         for idx, score in zip(indices, scores):
             if idx < 0:
                 continue
-            candidate_vec = self.basket_vectors_normed[idx]
-
-            if not selected_vecs:
-                selected_vecs.append(candidate_vec)
-                selected_pairs.append((float(score), self.basket_metadata[idx]))
-            else:
-                sim_to_selected = max(
-                    float(np.dot(candidate_vec, sv)) for sv in selected_vecs
-                )
-                mmr_score = lambda_mmr * float(score) - (1 - lambda_mmr) * sim_to_selected
-                if mmr_score > 0:
-                    selected_vecs.append(candidate_vec)
-                    selected_pairs.append((float(score), self.basket_metadata[idx]))
-
-            if len(selected_pairs) >= n_retrieve:
-                break
+            # basket_metadata is now a list of product_id lists
+            product_ids = self.basket_metadata[idx]
+            selected_pairs.append((float(score), {"product_ids": product_ids}))
 
         return selected_pairs
 

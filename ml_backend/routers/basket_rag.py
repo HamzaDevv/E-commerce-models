@@ -84,9 +84,8 @@ def basket_rag_recommend(request: BasketRAGRequest):
     Pipeline:
     1. Encodes the user's current cart into a query vector (BasketEncoder CLS token).
     2. Performs ANN search against all indexed historical basket embeddings (Faiss).
-    3. Applies Maximal Marginal Relevance (MMR) for result diversity.
-    4. Scores candidate products by weighted similarity + popularity bias.
-    5. Returns F1-optimised ranked recommendation list.
+    3. Scores candidate products by weighted similarity + popularity bias.
+    4. Returns F1-optimised ranked recommendation list.
     """
     global basket_rag_engine
 
