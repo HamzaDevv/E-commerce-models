@@ -72,7 +72,7 @@ class LimitUploadSize(BaseHTTPMiddleware):
         return await call_next(request)
 
 app = FastAPI(
-    title="Instamart ML Models API",
+    title="NeuralGrocer ML Models API",
     description="Secured API for E-Commerce Machine Learning Models.",
     version="1.1.0",
     lifespan=lifespan
@@ -126,7 +126,7 @@ app.include_router(search.router)
 @app.get("/")
 def root():
     return {
-        "message": "Instamart ML Backend API",
+        "message": "NeuralGrocer ML Backend API",
         "status": "online",
         "engines": {
             "basket_gpt": "loaded" if recommendation.basket_engine else "missing",

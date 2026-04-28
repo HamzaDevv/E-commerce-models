@@ -1,4 +1,4 @@
-# Instamart ML Backend API
+# NeuralGrocer ML Backend API
 
 A high-performance, modular FastAPI backend for e-commerce intelligence. This repository contains advanced machine learning models for search, product recommendations, and basket analysis.
 
